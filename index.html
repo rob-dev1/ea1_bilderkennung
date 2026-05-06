@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bilderkennung mit ml5.js — EA 1</title>
+  <script src="https://unpkg.com/ml5@1.2.1/dist/ml5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+
+    details.help {
+  margin-top: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+}
+
+details.help summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.6rem 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #555;
+  user-select: none;
+}
+
+details.help summary::-webkit-details-marker {
+  display: none;
+}
+
+details.help summary::after {
+  content: '▾';
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: #999;
+  transition: transform 0.2s ease;
+}
+
+details.help[open] summary::after {
+  transform: rotate(180deg);
+}
+
+details.help[open] summary {
+  border-bottom: 1px solid #eee;
+}
+
+.help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #5b3c2a;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.help-body {
+  padding: 0.8rem;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.help-body ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.help-body li {
+  margin-bottom: 0.4rem;
+}
+
+kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background: #f5f5f5;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8em;
+}
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 1100px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+  }
+  
+  .example-row {
+    display: grid;
+    grid-template-columns: 1fr 1.3fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+  }
+  
+  .example-row.correct   { border-left: 4px solid #2f6b46; }
+  .example-row.incorrect { border-left: 4px solid #b15226; }
+  
+  .img-pane img {
+    width: 100%;
+    max-height: 250px;
+    object-fit: contain;
+    background: #f5f5f5;
+    border-radius: 4px;
+  }
+  
+  .chart-pane canvas {
+    width: 100% !important;
+    max-height: 250px !important;
+  }
+  
+  .label {
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+  }
+  
+  .verdict-correct   { color: #2f6b46; font-weight: bold; }
+  .verdict-incorrect { color: #b15226; font-weight: bold; }
+  .upload-row {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+#file-input {
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+
+#user-image {
+  width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  background: #f5f5f5;
+  border-radius: 4px;
+  display: block;
+}
+
+.dropzone {
+  width: 100%;
+  min-height: 250px;
+  border: 2px dashed #aaa;
+  border-radius: 6px;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dropzone:hover,
+.dropzone:focus-visible {
+  border-color: #5b3c2a;
+  background: #fff;
+  outline: none;
+}
+
+.dropzone.dragover {
+  border-color: #2f6b46;
+  border-style: solid;
+  background: #e8f0e8;
+}
+
+.dz-prompt p {
+  margin: 0.3rem 0;
+  color: #555;
+}
+
+.dz-prompt .hint {
+  font-size: 0.8rem;
+  color: #888;
+  margin-top: 0.6rem;
+}
+
+
+#select-btn,
+#reset-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid #aaa;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+#select-btn:hover,
+#reset-btn:hover {
+  background: #eee;
+}
+
+#reset-btn {
+  margin-top: 0.6rem;
+}
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #ccc;
+  border-radius: 999px;
+  background: white;
+  font-size: 0.85rem;
+  color: #555;
+  white-space: nowrap;
+}
+
+.status-pill .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #999;
+}
+
+.status-pill.loading .dot {
+  background: #c8a32a;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.status-pill.ready .dot {
+  background: #2f6b46;
+}
+
+.status-pill.error .dot {
+  background: #b15226;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.3); }
+}
+.feedback {
+  display: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  margin-top: 0.6rem;
+  border-left: 3px solid;
+}
+
+.feedback.visible {
+  display: block;
+}
+
+.feedback.error {
+  background: #fbe6dd;
+  color: #8a3a14;
+  border-left-color: #b15226;
+}
+
+.feedback.success {
+  background: #dde9dd;
+  color: #1f4a30;
+  border-left-color: #2f6b46;
+}
+
+.feedback.info {
+  background: #f0f0f0;
+  color: #555;
+  border-left-color: #999;
+}
+
+.docs {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid #ddd;
+  max-width: 70ch;
+}
+
+.docs h2 {
+  margin-top: 2rem;
+}
+
+.docs h3 {
+  margin-top: 1.5rem;
+  font-size: 1rem;
+}
+
+.docs p {
+  line-height: 1.6;
+  color: #333;
+}
+
+.doc-list {
+  padding-left: 1.2rem;
+}
+
+.doc-list li {
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
+
+.docs code {
+  background: #f0ebe0;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.88em;
+}
+
+.ai-disclosure {
+  margin: 1.5rem 0;
+  padding: 0.9rem 1.1rem;
+  background: #f5f0e6;
+  border-left: 3px solid #5b3c2a;
+  border-radius: 4px;
+}
+
+.ai-disclosure h3 {
+  margin-top: 0;
+}
+
+.ai-disclosure p {
+  margin-bottom: 0;
+  font-size: 0.92rem;
+}
+
+.source {
+  display: inline-block;
+  margin-top: 0.3rem;
+  color: #888;
+  font-size: 0.78rem;
+}
+
+.source a {
+  color: #888;
+  text-decoration: underline;
+  text-decoration-color: #ccc;
+}
+
+.source a:hover {
+  color: #5b3c2a;
+  text-decoration-color: #5b3c2a;
+}
+</style>
+</head>
+<body>
+<header class="app-header">
+  <h1>Bilderkennung mit ml5.js</h1>
+  <div id="status" class="status-pill loading" role="status" aria-live="polite">
+    <span class="dot"></span>
+    <span class="status-text">Modell wird geladen…</span>
+  </div>
+</header>
+
+  <h2>R1 — Beispiele</h2>
+
+  <h3>Korrekt klassifiziert</h3>
+  <div id="correct-list"></div>
+
+  <h3>Falsch klassifiziert</h3>
+  <div id="incorrect-list"></div>
+
+<h2>R2 — Eigenes Bild klassifizieren</h2>
+
+<div class="upload-row">
+  <div class="img-pane">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button"
+         aria-label="Bild hochladen">
+      <div class="dz-prompt" id="dz-prompt">
+        <p><strong>Bild hierher ziehen</strong></p>
+        <p>oder</p>
+        <button type="button" id="select-btn">Datei auswählen</button>
+        <p class="hint">JPG, PNG, GIF, WebP — max. 10 MB</p>
+      </div>
+      <img id="user-image" alt="Hochgeladenes Bild" crossorigin="anonymous" hidden />
+    </div>
+    <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
+    <p class="label" id="user-label"></p>
+    <div id="user-feedback" class="feedback" role="alert"></div>
+    <button type="button" id="reset-btn" hidden>Zurücksetzen</button>
+ <details class="help">
+  <summary>
+    <span class="help-icon">?</span>
+    <span>Hilfe &amp; Tipps</span>
+  </summary>
+  <div class="help-body">
+    <ul>
+      <li>Das MobileNet-Modell kennt 1.000 ImageNet-Klassen — vorrangig
+          Tiere, Alltagsobjekte und Fahrzeuge. Personen werden nicht
+          direkt erkannt.</li>
+      <li>Beste Ergebnisse mit gut beleuchteten Bildern, einem
+          klar erkennbaren Hauptobjekt und mind. 224×224 Pixel.</li>
+      <li>Die Klassifikation läuft komplett lokal im Browser —
+          es werden keine Bilder an einen Server gesendet.</li>
+  </ul>
+  </div>
+</details>
+  </div>
+
+  <div class="chart-pane">
+    <canvas id="user-canvas" hidden></canvas>
+    <p class="prediction" id="user-prediction">
+      <em>Wähle ein Bild aus, um es zu klassifizieren.</em>
+    </p>
+  </div>
+</div>
+<section class="docs">
+  <h2>Diskussion</h2>
+  <p>
+    MobileNet liefert auf den drei korrekt klassifizierten Beispielen
+    (Banane, Golden Retriever, Pizza) hohe Top-1-Confidence-Werte —
+    Klassen mit eindeutiger Form und Textur, werden zuverlässig erkannt.
+    Bei der Auswahl der Positiv-Beispiele hatte ich darauf geachtet, Bilder zu wählen,
+    die typische Vertreter ihrer Klasse zeigen, gut beleuchtet sind und ein klar erkennbares Hauptobjekt haben.
+
+  </p>
+  <p>
+    Die drei negativen Beispiele (Donut, iPhone, Auto-Zeichnung) wurden gewählt, da das Model
+    beispielsweise nicht für Donuts trainiert wurde. Iphones sind ebenfalls nicht als Klassifikation enthalten.
+    Als letztes dient die Auto-Zeichnung als Beispiel, dass Unterschiede zwischen gemalten Bildern 
+    und Fotos problematisch sein können, da das Modell nur auf Fotos trainiert wurde.
+  </p>
+
+  <p>
+    Die Top-5-Visualisierung als Balkendiagramm ist deutlich
+    aussagekräftiger als nur die Top-1-Vorhersage: gerade bei den
+    Fehlfällen sieht man, wie unsicher das Modell wirklich ist und
+    welche Alternativen es in Betracht gezogen hat.
+  </p>
+
+  <h2>Dokumentation</h2>
+
+  <h3>Verwendete Frameworks</h3>
+  <ul class="doc-list">
+    <li>
+      <strong>ml5.js v1.2.1</strong> — High-Level-API über TensorFlow.js.
+      Lädt das vor-trainierte MobileNet-Modell und stellt eine schlanke
+      <code>classify()</code>-Schnittstelle bereit.
+    </li>
+    <li>
+      <strong>MobileNet</strong> — Vor-trainiertes CNN von Google,
+      optimiert für mobile/embedded Vision. Trainiert auf ImageNet
+      (≈1,28 Mio. Bilder, 1.000 Klassen). Architektur: depth-wise
+      separable convolutions.
+    </li>
+    <li>
+      <strong>TensorFlow.js</strong> — wird transitiv von ml5.js
+      verwendet. Führt das Modell via WebGL clientseitig im Browser aus.
+    </li>
+    <li>
+      <strong>Chart.js v4.4.0</strong> — Visualisierung der Confidence
+      als horizontales Balkendiagramm (Top-5).
+    </li>
+    <li>
+      <strong>Vanilla JavaScript / HTML / CSS</strong> — kein
+      Framework. Single-File-Lösung, async/await Pattern, FileReader-
+      und Drag-and-Drop-API.
+    </li>
+  </ul>
+
+  <h3>Implementierung</h3>
+  <p>
+    Beim Start wird einmalig MobileNet über
+    <code>ml5.imageClassifier('MobileNet', callback)</code> geladen.
+    Die App rendert die Bildreihen sofort mit Platzhaltern, sodass
+    das UI direkt sichtbar ist; sobald das Modell bereit ist, werden
+    die sechs Beispielbilder nacheinander klassifiziert und die
+    Diagramme erscheinen.
+  </p>
+  <p>
+    Pro Bild liefert <code>classifier.classify(imgEl, 5)</code> die
+    Top-5-Klassen mit Confidence-Werten zwischen 0 und 1. Die Werte
+    werden in Prozent umgerechnet und an Chart.js als horizontales
+    Bar-Chart übergeben.
+  </p>
+  <p>
+    Der Upload-Bereich kombiniert drei Eingabewege gemäß ISO 9241-110
+    (Steuerbarkeit): klassischer Datei-Dialog, Drag-and-Drop und
+    Tastatur-Trigger (Enter/Space auf der Dropzone, Esc zum
+    Zurücksetzen). Vor der Klassifikation wird per
+    <code>file.type</code> und <code>file.size</code> validiert;
+    ungültige Dateien erzeugen Fehlermeldungen.
+  </p>
+  <p>
+    Die Status-Pille oben rechts zeigt den Modellzustand
+    (Loading → Bereit) und erfüllt damit das HCI-Prinzip der
+    Erwartungskonformität.
+  </p>
+
+  <div class="ai-disclosure">
+  <h3>Hinweis zur Erstellung</h3>
+  <p>
+    Diese Lösung wurde mithilfe von <strong>Claude Opus 4.7</strong>
+    (Anthropic) erarbeitet. Die Aufgabenstellung wurde gemeinsam
+    Schritt für Schritt durchgearbeitet — von Setup, ml5.js-Integration,
+    Chart.js-Visualisierung über das Beispielbild-Layout bis hin zu
+    Drag-and-Drop-Upload, Validierung und UX-Polish. Die Implementierung,
+    Tests und finale Auswahl der Beispielbilder erfolgten durch mich;
+    die KI diente als Sparringspartner zur Erklärung von Konzepten,
+    zur Code-Strukturierung und zur Fehlersuche.
+  </p>
+</div>
+
+  <h3>Quellen</h3>
+  <ul class="doc-list">
+    <li>ml5.js Dokumentation: <a href="https://docs.ml5js.org/" target="_blank" rel="noopener">docs.ml5js.org</a></li>
+    <li>MobileNet-Paper (Howard et al. 2017): <a href="https://arxiv.org/abs/1704.04861" target="_blank" rel="noopener">arXiv:1704.04861</a></li>
+    <li>ImageNet (Russakovsky et al. 2015): <a href="https://arxiv.org/abs/1409.0575" target="_blank" rel="noopener">arXiv:1409.0575</a></li>
+    <li>ImageNet-Datensatz: <a href="https://www.image-net.org/" target="_blank" rel="noopener">image-net.org</a></li>
+    <li>Chart.js Dokumentation: <a href="https://www.chartjs.org/docs/latest/" target="_blank" rel="noopener">chartjs.org</a></li>
+    <li>TensorFlow.js: <a href="https://www.tensorflow.org/js" target="_blank" rel="noopener">tensorflow.org/js</a></li>
+  </ul>
+
+  <h3>Bildquellen</h3>
+<ul class="doc-list">
+  <li>
+    <strong>Banane</strong> —
+    <a href="https://de.wikipedia.org/wiki/Cavendish_(Banane)" target="_blank" rel="noopener">
+      Wikipedia: Cavendish (Banane)</a>
+  </li>
+  <li>
+    <strong>Golden Retriever</strong> —
+    <a href="https://de.wikipedia.org/wiki/Golden_Retriever" target="_blank" rel="noopener">
+      Wikipedia: Golden Retriever</a> (Foto „Carlos", Wikimedia Commons, CC-Lizenz)
+  </li>
+  <li>
+    <strong>Pizza</strong> —
+    <a href="https://de.wikipedia.org/wiki/Pizza" target="_blank" rel="noopener">
+      Wikipedia: Pizza</a> (Pizza Margherita, Wikimedia Commons)
+  </li>
+  <li>
+    <strong>Donut</strong> —
+    <a href="https://commons.wikimedia.org/wiki/File:Donut.jpg" target="_blank" rel="noopener">
+      Wikimedia Commons: Donut.jpg</a>
+  </li>
+  <li>
+    <strong>iPhone</strong> —
+    <a href="https://commons.wikimedia.org/wiki/File:Back_of_iPhone_15.jpg" target="_blank" rel="noopener">
+      Wikimedia Commons: Back of iPhone 15.jpg</a>
+  </li>
+  <li>
+    <strong>Auto-Zeichnung</strong> —
+    <a href="https://www.youtube.com/watch?v=r0A1VZcw3VQ" target="_blank" rel="noopener">
+      YouTube-Video-Thumbnail</a>
+  </li>
+</ul>
+</section>
+
+  <script>
+
+const EXAMPLES = [
+  {
+    src: 'images/Banane.jpg',
+    expected: 'banana',
+    correct: true,
+    source: 'Wikipedia',
+    sourceUrl: 'https://de.wikipedia.org/wiki/Cavendish_(Banane)'
+  },
+  {
+    src: 'images/Golden_Retriever.jpg',
+    expected: 'golden retriever',
+    correct: true,
+    source: 'Wikipedia',
+    sourceUrl: 'https://de.wikipedia.org/wiki/Golden_Retriever'
+  },
+  {
+    src: 'images/Pizza.jpg',
+    expected: 'pizza',
+    correct: true,
+    source: 'Wikipedia',
+    sourceUrl: 'https://de.wikipedia.org/wiki/Pizza'
+  },
+  {
+    src: 'images/Donut.jpg',
+    expected: 'Donut',
+    correct: false,
+    source: 'Wikimedia Commons',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Donut.jpg'
+  },
+  {
+    src: 'images/iphone.jpg',
+    expected: 'iPhone (Smartphone)',
+    correct: false,
+    source: 'Wikimedia Commons',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Back_of_iPhone_15.jpg'
+  },
+  {
+    src: 'images/Car_Drawing.jpg',
+    expected: 'Auto (Zeichnung)',
+    correct: false,
+    source: 'YouTube',
+    sourceUrl: 'https://www.youtube.com/watch?v=r0A1VZcw3VQ'
+  },
+];
+// === DOM-Referenzen ===
+const statusEl = document.getElementById('status');
+const correctList = document.getElementById('correct-list');
+const incorrectList = document.getElementById('incorrect-list');
+
+    function setStatus(state, text) {
+  const el = document.getElementById('status');
+  el.classList.remove('loading', 'ready', 'error');
+  el.classList.add(state);
+  el.querySelector('.status-text').textContent = text;
+}
+
+// NEU: alle Bilder rendern, Referenzen merken
+const exampleRows = []; // Liste der gerenderten Rows + ihrer Konfig
+
+
+setStatus('loading', 'Modell wird geladen…');
+
+// Beispielbilder SOFORT rendern (mit Klassifiziere-Platzhalter)
+renderAllExamples();
+
+const classifier = ml5.imageClassifier('MobileNet', () => {
+  setStatus('ready', 'Modell bereit');
+  // Sobald das Modell da ist, Beispielbilder klassifizieren
+  classifyAllExamples();
+});
+
+
+function renderExample(example, container) {
+  const row = document.createElement('div');
+  row.className = 'example-row ' + (example.correct ? 'correct' : 'incorrect');
+  
+row.innerHTML = `
+  <div class="img-pane">
+    <img src="${example.src}" alt="${example.expected}" crossorigin="anonymous" />
+    <p class="label">
+      Erwartet: <strong>${example.expected}</strong><br/>
+      <span class="${example.correct ? 'verdict-correct' : 'verdict-incorrect'}">
+        ${example.correct ? '✓ Korrekt' : '✗ Falsch'}
+      </span>
+      <br/>
+      <small class="source">
+        Quelle: <a href="${example.sourceUrl}" target="_blank" rel="noopener">${example.source}</a>
+      </small>
+    </p>
+  </div>
+  <div class="chart-pane">
+    <canvas></canvas>
+    <p class="prediction"><em>Wartet auf Modell…</em></p>
+  </div>
+`;
+  
+  container.appendChild(row);
+  return row; // wichtig: wir geben die Row zurück, damit wir später drauf zugreifen
+}
+
+function renderAllExamples() {
+  EXAMPLES.forEach(example => {
+    const container = example.correct ? correctList : incorrectList;
+    const row = renderExample(example, container);
+    exampleRows.push({ example, row });
+  });
+}
+
+// NEU: alle Bilder klassifizieren (nach Modell-Load)
+async function classifyAllExamples() {
+  for (const { example, row } of exampleRows) {
+    const imgEl = row.querySelector('img');
+    const canvas = row.querySelector('canvas');
+    const predictionEl = row.querySelector('.prediction');
+    
+    predictionEl.innerHTML = '<em>Klassifiziere…</em>';
+    
+    // Falls Bild noch nicht geladen, warten
+    if (!imgEl.complete) {
+      await new Promise(resolve => {
+        imgEl.onload = resolve;
+        imgEl.onerror = resolve;
+      });
+    }
+    
+    if (imgEl.naturalWidth === 0) {
+      predictionEl.textContent = `Bild nicht gefunden: ${example.src}`;
+      continue;
+    }
+    
+    try {
+      const results = await classifier.classify(imgEl, 5);
+      drawChart(canvas, results);
+      const top = results[0];
+      predictionEl.innerHTML = 
+        `Top-1: <strong>${top.label}</strong> (${(top.confidence * 100).toFixed(1)}%)`;
+    } catch (err) {
+      predictionEl.textContent = 'Fehler: ' + err.message;
+      console.error(err);
+    }
+  }
+}
+
+function showFeedback(type, message) {
+  const el = document.getElementById('user-feedback');
+  el.className = 'feedback visible ' + type;
+  el.textContent = message;
+}
+
+function clearFeedback() {
+  const el = document.getElementById('user-feedback');
+  el.className = 'feedback';
+  el.textContent = '';
+}
+
+// === Chart zeichnen ===
+function drawChart(canvas, results) {
+  new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: results.map(r => r.label),
+      datasets: [{
+        label: 'Confidence (%)',
+        data: results.map(r => (r.confidence * 100).toFixed(2)),
+        backgroundColor: '#5b3c2a'
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { beginAtZero: true, max: 100 }
+      }
+    }
+  });
+}
+// === USER-UPLOAD ===
+const dropzone = document.getElementById('dropzone');
+const dzPrompt = document.getElementById('dz-prompt');
+const fileInput = document.getElementById('file-input');
+const selectBtn = document.getElementById('select-btn');
+const resetBtn = document.getElementById('reset-btn');
+const userImage = document.getElementById('user-image');
+const userCanvas = document.getElementById('user-canvas');
+const userPrediction = document.getElementById('user-prediction');
+const userLabel = document.getElementById('user-label');
+
+const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+
+let userChart = null;
+let currentObjectUrl = null;
+
+// --- Datei-Auswahl-Wege ---
+
+// (a) Klick auf "Datei auswählen" Button
+selectBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  fileInput.click();
+});
+
+// (b) Klick irgendwo auf die Dropzone (außer Button) öffnet Dialog
+dropzone.addEventListener('click', () => {
+  if (userImage.hidden) fileInput.click();
+});
+
+// (c) Tastatur: Enter/Space auf der Dropzone
+dropzone.addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && userImage.hidden) {
+    e.preventDefault();
+    fileInput.click();
+  }
+  if (e.key === 'Escape' && !userImage.hidden) {
+    resetUpload();
+  }
+});
+
+// (d) File-Input change (regulärer Datei-Dialog)
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) handleFile(file);
+});
+
+// (e) Drag & Drop
+['dragenter', 'dragover'].forEach(evt => {
+  dropzone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    dropzone.classList.add('dragover');
+  });
+});
+
+['dragleave', 'drop'].forEach(evt => {
+  dropzone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+  });
+});
+
+dropzone.addEventListener('drop', (e) => {
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+
+// --- Reset-Button ---
+resetBtn.addEventListener('click', resetUpload);
+
+// --- Validierung + Bild laden ---
+function handleFile(file) {
+  // Validieren
+  clearFeedback(); // Reset bei jedem neuen Versuch
+  
+  // Validieren
+  if (!ACCEPTED_TYPES.includes(file.type)) {
+    showFeedback('error', 
+      `Format „${file.type || 'unbekannt'}" wird nicht unterstützt. Erlaubt: JPG, PNG, GIF, WebP.`);
+    return;
+  }
+  if (file.size > MAX_BYTES) {
+    showFeedback('error', 
+      `Datei zu groß (${(file.size/1024/1024).toFixed(1)} MB). Maximum: 10 MB.`);
+    return;
+  }
+
+  // Alte Object-URL freigeben
+  if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
+
+  // Neues Bild anzeigen
+  currentObjectUrl = URL.createObjectURL(file);
+  userImage.src = currentObjectUrl;
+  userImage.hidden = false;
+  dzPrompt.hidden = true;
+  resetBtn.hidden = false;
+  userLabel.textContent = `Datei: ${file.name} (${(file.size/1024).toFixed(0)} KB)`;
+
+  showFeedback('info', 'Bild geladen — Klassifikation läuft …');
+
+  userImage.onload = async () => {
+    await classifyUserImage();
+  };
+}
+
+// --- Reset ---
+function resetUpload() {
+  clearFeedback();
+  if (currentObjectUrl) {
+    URL.revokeObjectURL(currentObjectUrl);
+    currentObjectUrl = null;
+  }
+  userImage.src = '';
+  userImage.hidden = true;
+  dzPrompt.hidden = false;
+  resetBtn.hidden = true;
+  fileInput.value = '';
+  userLabel.textContent = '';
+  userPrediction.innerHTML = '<em>Wähle ein Bild aus, um es zu klassifizieren.</em>';
+  userCanvas.hidden = true;
+  if (userChart) {
+    userChart.destroy();
+    userChart = null;
+  }
+}
+
+// --- Klassifikation ---
+async function classifyUserImage() {
+  userPrediction.innerHTML = '<em>Klassifiziere...</em>';
+
+  try {
+    const results = await classifier.classify(userImage, 5);
+
+    if (userChart) userChart.destroy();
+    userCanvas.hidden = false;
+    userChart = drawUserChart(userCanvas, results);
+
+    const top = results[0];
+    userPrediction.innerHTML =
+      `Top-1: <strong>${top.label}</strong> (${(top.confidence * 100).toFixed(1)}%)`;
+  showFeedback('success', 'Klassifikation abgeschlossen.');
+    } catch (err) {
+   showFeedback('error', 'Klassifikation fehlgeschlagen: ' + err.message);
+    console.error(err);
+  }
+}
+
+function drawUserChart(canvas, results) {
+  return new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: results.map(r => r.label),
+      datasets: [{
+        label: 'Confidence (%)',
+        data: results.map(r => (r.confidence * 100).toFixed(2)),
+        backgroundColor: '#5b3c2a'
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: { x: { beginAtZero: true, max: 100 } }
+    }
+  });
+}
+  </script>
+</body>
+</html>
